@@ -14,6 +14,7 @@ function safeName(name) {
 }
 
 function resolveContainerPath(containerId) {
+  if (containerId === '__root__') return path.resolve(DATA_DIR)
   const safe = safeName(containerId)
   const resolved = path.resolve(DATA_DIR, safe)
   // Ensure the resolved path stays inside DATA_DIR
@@ -71,7 +72,7 @@ app.get('/api/containers', (_req, res) => {
     // Files directly in DATA_DIR → expose as a root container
     const rootFiles = entries.filter(e => e.isFile())
     if (rootFiles.length > 0) {
-      containers.push({ id: '.', name: path.basename(DATA_DIR), fileCount: rootFiles.length })
+      containers.push({ id: '__root__', name: path.basename(DATA_DIR), fileCount: rootFiles.length })
     }
 
     // Subdirectories as additional containers
