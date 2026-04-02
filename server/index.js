@@ -66,17 +66,25 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/containers', (_req, res) => {
   try {
     const entries = fs.readdirSync(DATA_DIR, { withFileTypes: true })
-    const containers = entries
-      .filter(e => e.isDirectory())
-      .map(e => {
-        let fileCount = 0
-        try {
-          fileCount = fs
-            .readdirSync(path.join(DATA_DIR, e.name), { withFileTypes: true })
-            .filter(f => f.isFile()).length
-        } catch { /* unreadable subdirectory — skip count */ }
-        return { id: e.name, name: e.name, fileCount }
-      })
+    const containers = []
+
+    // Files directly in DATA_DIR → expose as a root container
+    const rootFiles = entries.filter(e => e.isFile())
+    if (rootFiles.length > 0) {
+      containers.push({ id: '.', name: path.basename(DATA_DIR), fileCount: rootFiles.length })
+    }
+
+    // Subdirectories as additional containers
+    entries.filter(e => e.isDirectory()).forEach(e => {
+      let fileCount = 0
+      try {
+        fileCount = fs
+          .readdirSync(path.join(DATA_DIR, e.name), { withFileTypes: true })
+          .filter(f => f.isFile()).length
+      } catch { /* unreadable subdirectory — skip count */ }
+      containers.push({ id: e.name, name: e.name, fileCount })
+    })
+
     res.json(containers)
   } catch (err) {
     console.error('GET /api/containers:', err.message)
