@@ -1,8 +1,30 @@
+import { useState, useEffect } from 'react'
 import { getFileCategory, getFileExt, formatFileSize, formatDate, getFileTypeLabel } from '../utils/fileUtils'
-import { IconClose, IconDownload, IconEye, IconLink, IconTrash } from './Icons'
+import { IconClose, IconDownload, IconEye, IconLink } from './Icons'
 import './FilePreview.css'
 
+const TEXT_CATEGORIES = new Set(['log', 'text', 'code', 'data'])
+
 export default function FilePreview({ file, containerId, onClose }) {
+  const [content, setContent] = useState(null)
+  const [loadingContent, setLoadingContent] = useState(false)
+
+  const ext      = getFileExt(file.name)
+  const category = getFileCategory(file.name)
+  const canPreview = TEXT_CATEGORIES.has(category)
+
+  useEffect(() => {
+    if (!canPreview) { setContent(null); return }
+    setLoadingContent(true)
+    setContent(null)
+    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view`
+    fetch(url)
+      .then(r => r.text())
+      .then(text => setContent(text))
+      .catch(() => setContent(null))
+      .finally(() => setLoadingContent(false))
+  }, [file.name, containerId, canPreview])
+
   function handleDownload() {
     const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download`
     const a = document.createElement('a')
@@ -12,7 +34,7 @@ export default function FilePreview({ file, containerId, onClose }) {
   }
 
   function handleOpen() {
-    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download`
+    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view`
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
@@ -20,15 +42,6 @@ export default function FilePreview({ file, containerId, onClose }) {
     const url = `${window.location.origin}/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download`
     navigator.clipboard.writeText(url).then(() => alert('URL copied to clipboard'))
   }
-
-  function handleDelete() {
-    if (window.confirm(`Delete "${file.name}"? This cannot be undone.`)) {
-      alert('TODO: implement DELETE /api/containers/:id/files/:filename in server/index.js')
-    }
-  }
-
-  const ext      = getFileExt(file.name)
-  const category = getFileCategory(file.name)
 
   return (
     <aside className="file-preview" aria-label="File details">
@@ -72,15 +85,24 @@ export default function FilePreview({ file, containerId, onClose }) {
             <IconDownload /> Download
           </button>
           <button className="preview-btn" onClick={handleOpen}>
-            <IconEye /> Open / Preview
+            <IconEye /> Open in tab
           </button>
           <button className="preview-btn" onClick={handleCopyUrl}>
             <IconLink /> Copy URL
           </button>
-          <button className="preview-btn danger" onClick={handleDelete}>
-            <IconTrash /> Delete
-          </button>
         </div>
+
+        {canPreview && (
+          <>
+            <hr className="preview-divider" />
+            <div className="preview-content">
+              {loadingContent && <p className="preview-content-loading">Loading…</p>}
+              {!loadingContent && content !== null && (
+                <pre className="preview-content-text">{content}</pre>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </aside>
   )

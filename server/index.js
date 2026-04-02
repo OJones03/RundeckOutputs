@@ -4,7 +4,7 @@ import path from 'path'
 import { createReadStream } from 'fs'
 
 const app = express()
-const DATA_DIR   = '/home/element/rundeck/outputs'
+const DATA_DIR   = '/outputs'
 const PORT       = process.env.PORT || 3001
 const STATIC_DIR = process.env.STATIC_DIR || path.join(process.cwd(), 'public')
 
@@ -135,6 +135,23 @@ app.get('/api/containers/:id/files/:filename/download', (req, res) => {
   const filename = path.basename(filePath)
 
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  res.setHeader('Content-Type', getMime(filename))
+  res.setHeader('Content-Length', stat.size)
+
+  createReadStream(filePath).pipe(res)
+})
+
+// ── GET /api/containers/:id/files/:filename/view ─────────────────────────────
+app.get('/api/containers/:id/files/:filename/view', (req, res) => {
+  const filePath = resolveFilePath(req.params.id, req.params.filename)
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' })
+  }
+
+  const stat = fs.statSync(filePath)
+  const filename = path.basename(filePath)
+
+  res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
   res.setHeader('Content-Type', getMime(filename))
   res.setHeader('Content-Length', stat.size)
 
