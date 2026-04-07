@@ -3,9 +3,13 @@ import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import FileList from './components/FileList'
 import FilePreview from './components/FilePreview'
+import Login from './components/Login'
+import { authFetch } from './utils/authFetch'
 import './App.css'
 
 function App() {
+  const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
+
   const [containers, setContainers]           = useState([])
   const [containersError, setContainersError] = useState(null)
 
@@ -15,35 +19,53 @@ function App() {
   const [viewMode, setViewMode]                   = useState('list')
   const [searchQuery, setSearchQuery]             = useState('')
 
-  const [files, setFiles]           = useState([])
+  const [files, setFiles]               = useState([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [filesError, setFilesError]     = useState(null)
 
-  // Fetch container list on mount
+  function handleLogin(newToken) {
+    localStorage.setItem('auth_token', newToken)
+    setToken(newToken)
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('auth_token')
+    setToken(null)
+    setContainers([])
+    setContainersError(null)
+    setSelectedContainer(null)
+    setFiles([])
+    setSelectedFile(null)
+  }
+
+  // Fetch container list on mount / token change
   useEffect(() => {
-    fetch('/api/containers')
+    if (!token) return
+    authFetch('/api/containers', token)
       .then(r => {
+        if (r.status === 401) { handleLogout(); return null }
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
         return r.json()
       })
-      .then(setContainers)
+      .then(data => data && setContainers(data))
       .catch(err => setContainersError(err.message))
-  }, [])
+  }, [token])
 
   // Fetch files whenever selected container changes
   useEffect(() => {
-    if (!selectedContainer) return
+    if (!selectedContainer || !token) return
     setFilesLoading(true)
     setFilesError(null)
     setFiles([])
-    fetch(`/api/containers/${encodeURIComponent(selectedContainer.id)}/files`)
+    authFetch(`/api/containers/${encodeURIComponent(selectedContainer.id)}/files`, token)
       .then(r => {
+        if (r.status === 401) { handleLogout(); return null }
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
         return r.json()
       })
-      .then(data => { setFiles(data); setFilesLoading(false) })
+      .then(data => { if (data) { setFiles(data); setFilesLoading(false) } })
       .catch(err => { setFilesError(err.message); setFilesLoading(false) })
-  }, [selectedContainer])
+  }, [selectedContainer, token])
 
   const filteredFiles = files.filter(f =>
     f.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -56,6 +78,10 @@ function App() {
     setSearchQuery('')
   }
 
+  if (!token) {
+    return <Login onLogin={handleLogin} />
+  }
+
   return (
     <div className="app">
       <Header
@@ -63,6 +89,7 @@ function App() {
         onSearchChange={setSearchQuery}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        onLogout={handleLogout}
       />
       <div className="app-body">
         <Sidebar
@@ -87,7 +114,9 @@ function App() {
           <FilePreview
             file={selectedFile}
             containerId={selectedContainer?.id}
+            token={token}
             onClose={() => setSelectedFile(null)}
+            onUnauthorized={handleLogout}
           />
         )}
       </div>

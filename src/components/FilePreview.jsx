@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { getFileCategory, getFileExt, formatFileSize, formatDate, getFileTypeLabel } from '../utils/fileUtils'
 import { IconClose, IconDownload, IconEye, IconLink } from './Icons'
+import { authFetch, downloadWithAuth, openWithAuth } from '../utils/authFetch'
 import './FilePreview.css'
 
 const TEXT_CATEGORIES = new Set(['log', 'text', 'code', 'data'])
 
-export default function FilePreview({ file, containerId, onClose }) {
+export default function FilePreview({ file, containerId, token, onClose, onUnauthorized }) {
   const [content, setContent] = useState(null)
   const [loadingContent, setLoadingContent] = useState(false)
 
@@ -18,24 +19,24 @@ export default function FilePreview({ file, containerId, onClose }) {
     setLoadingContent(true)
     setContent(null)
     const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view`
-    fetch(url)
-      .then(r => r.text())
-      .then(text => setContent(text))
+    authFetch(url, token)
+      .then(r => {
+        if (r.status === 401) { onUnauthorized?.(); return null }
+        return r.text()
+      })
+      .then(text => text !== null && setContent(text))
       .catch(() => setContent(null))
       .finally(() => setLoadingContent(false))
-  }, [file.name, containerId, canPreview])
+  }, [file.name, containerId, canPreview, token])
 
   function handleDownload() {
     const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download`
-    const a = document.createElement('a')
-    a.href = url
-    a.download = file.name
-    a.click()
+    downloadWithAuth(url, file.name, token).catch(() => {})
   }
 
   function handleOpen() {
     const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    openWithAuth(url, token).catch(() => {})
   }
 
   function handleCopyUrl() {

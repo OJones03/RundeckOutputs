@@ -2,11 +2,61 @@ import express from 'express'
 import fs from 'fs'
 import path from 'path'
 import { createReadStream } from 'fs'
+import { timingSafeEqual, createHash } from 'crypto'
+import jwt from 'jsonwebtoken'
 
 const app = express()
 const DATA_DIR   = '/outputs'
 const PORT       = process.env.PORT || 3001
 const STATIC_DIR = process.env.STATIC_DIR || path.join(process.cwd(), 'public')
+
+// ── Auth configuration ────────────────────────────────────────────────────────
+const JWT_SECRET   = process.env.JWT_SECRET
+const APP_USERNAME = process.env.APP_USERNAME || 'admin'
+const APP_PASSWORD = process.env.APP_PASSWORD
+
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET env var is not set. Refusing to start.')
+  process.exit(1)
+}
+if (!APP_PASSWORD) {
+  console.error('FATAL: APP_PASSWORD env var is not set. Refusing to start.')
+  process.exit(1)
+}
+
+// Constant-time string comparison to resist timing attacks
+function safeEqual(a, b) {
+  const bufA = createHash('sha256').update(a).digest()
+  const bufB = createHash('sha256').update(b).digest()
+  return timingSafeEqual(bufA, bufB)
+}
+
+// ── POST /api/login ───────────────────────────────────────────────────────────
+app.post('/api/login', express.json(), (req, res) => {
+  const { username, password } = req.body ?? {}
+  if (
+    typeof username === 'string' && typeof password === 'string' &&
+    safeEqual(username, APP_USERNAME) && safeEqual(password, APP_PASSWORD)
+  ) {
+    const token = jwt.sign({ sub: username }, JWT_SECRET, { expiresIn: '8h' })
+    return res.json({ token })
+  }
+  res.status(401).json({ error: 'Invalid credentials' })
+})
+
+// ── JWT authentication middleware ─────────────────────────────────────────────
+function authenticate(req, res, next) {
+  const auth = req.headers.authorization
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  try {
+    jwt.verify(auth.slice(7), JWT_SECRET)
+    next()
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired token' })
+  }
+}
 
 // ── Security: strip path traversal characters from any user-supplied segment ──
 function safeName(name) {
@@ -62,6 +112,9 @@ function getMime(filename) {
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', dataDir: DATA_DIR })
 })
+
+// ── All /api/containers/* routes require a valid JWT ──────────────────────────
+app.use('/api/containers', authenticate)
 
 // ── GET /api/containers ────────────────────────────────────────────────────────
 app.get('/api/containers', (_req, res) => {

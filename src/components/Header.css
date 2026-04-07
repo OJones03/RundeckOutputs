@@ -128,3 +128,19 @@
   background: rgba(56, 189, 248, 0.15);
   color: var(--accent);
 }
+
+.logout-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.logout-btn:hover {
+  border-color: rgba(255, 107, 107, 0.5);
+  color: var(--red);
+  background: rgba(255, 107, 107, 0.06);
+}
