@@ -66,13 +66,16 @@ function App() {
       .catch(err => setContainersError(err.message))
   }, [token])
 
-  // Fetch files whenever selected container changes
+  // Fetch files whenever selected container or path changes
   useEffect(() => {
     if (!selectedContainer || !token) return
     setFilesLoading(true)
     setFilesError(null)
     setFiles([])
-    authFetch(`/api/containers/${encodeURIComponent(selectedContainer.id)}/files`, token)
+    const subpath = currentPath.join('/')
+    const url = `/api/containers/${encodeURIComponent(selectedContainer.id)}/files` +
+      (subpath ? `?subpath=${encodeURIComponent(subpath)}` : '')
+    authFetch(url, token)
       .then(r => {
         if (r.status === 401) { handleLogout(); return null }
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
@@ -80,11 +83,17 @@ function App() {
       })
       .then(data => { if (data) { setFiles(data); setFilesLoading(false) } })
       .catch(err => { setFilesError(err.message); setFilesLoading(false) })
-  }, [selectedContainer, token])
+  }, [selectedContainer, token, currentPath])
 
   const filteredFiles = files.filter(f =>
     f.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  function handleFolderClick(folderName) {
+    setCurrentPath(prev => [...prev, folderName])
+    setSelectedFile(null)
+    setSearchQuery('')
+  }
 
   function handleContainerSelect(container) {
     setSelectedContainer(container)
@@ -122,6 +131,7 @@ function App() {
             error={filesError}
             selectedFile={selectedFile}
             onFileSelect={setSelectedFile}
+            onFolderClick={handleFolderClick}
             currentPath={currentPath}
             onPathChange={setCurrentPath}
             selectedContainer={selectedContainer}
@@ -132,6 +142,7 @@ function App() {
             <FilePreview
               file={selectedFile}
               containerId={selectedContainer?.id}
+              subpath={currentPath.join('/')}
               token={token}
               onClose={() => setSelectedFile(null)}
               onUnauthorized={handleLogout}

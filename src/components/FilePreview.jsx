@@ -6,7 +6,7 @@ import './FilePreview.css'
 
 const TEXT_CATEGORIES = new Set(['log', 'text', 'code', 'data'])
 
-export default function FilePreview({ file, containerId, token, onClose, onUnauthorized }) {
+export default function FilePreview({ file, containerId, subpath, token, onClose, onUnauthorized }) {
   const [content, setContent] = useState(null)
   const [loadingContent, setLoadingContent] = useState(false)
 
@@ -14,11 +14,13 @@ export default function FilePreview({ file, containerId, token, onClose, onUnaut
   const category = getFileCategory(file.name)
   const canPreview = TEXT_CATEGORIES.has(category)
 
+  const subpathParam = subpath ? `?subpath=${encodeURIComponent(subpath)}` : ''
+
   useEffect(() => {
     if (!canPreview) { setContent(null); return }
     setLoadingContent(true)
     setContent(null)
-    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view`
+    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view${subpathParam}`
     authFetch(url, token)
       .then(r => {
         if (r.status === 401) { onUnauthorized?.(); return null }
@@ -30,17 +32,17 @@ export default function FilePreview({ file, containerId, token, onClose, onUnaut
   }, [file.name, containerId, canPreview, token])
 
   function handleDownload() {
-    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download`
+    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download${subpathParam}`
     downloadWithAuth(url, file.name, token).catch(() => {})
   }
 
   function handleOpen() {
-    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view`
+    const url = `/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/view${subpathParam}`
     openWithAuth(url, token).catch(() => {})
   }
 
   function handleCopyUrl() {
-    const url = `${window.location.origin}/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download`
+    const url = `${window.location.origin}/api/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(file.name)}/download${subpathParam}`
     navigator.clipboard.writeText(url).then(() => alert('URL copied to clipboard'))
   }
 

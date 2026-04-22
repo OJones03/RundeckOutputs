@@ -8,12 +8,14 @@ export default function FileList({
   error,
   selectedFile,
   onFileSelect,
+  onFolderClick,
   currentPath,
   onPathChange,
   selectedContainer,
   viewMode,
   searchQuery,
 }) {
+  const fileCount = files.filter(f => !f.isDirectory).length
   if (!selectedContainer) {
     return (
       <main className="file-list">
@@ -51,7 +53,7 @@ export default function FileList({
           ))}
         </nav>
         <span className="file-count">
-          {!loading && !error && `${files.length} ${files.length === 1 ? 'file' : 'files'}${searchQuery ? ` matching "${searchQuery}"` : ''}`}
+          {!loading && !error && `${fileCount} ${fileCount === 1 ? 'file' : 'files'}${searchQuery ? ` matching "${searchQuery}"` : ''}`}
         </span>
       </div>
 
@@ -87,8 +89,11 @@ export default function FileList({
               key={file.id}
               file={file}
               viewMode={viewMode}
-              isSelected={selectedFile?.id === file.id}
-              onClick={() => onFileSelect(selectedFile?.id === file.id ? null : file)}
+              isSelected={!file.isDirectory && selectedFile?.id === file.id}
+              onClick={() => file.isDirectory
+                ? onFolderClick(file.name)
+                : onFileSelect(selectedFile?.id === file.id ? null : file)
+              }
             />
           ))}
         </div>

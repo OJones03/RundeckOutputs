@@ -92,3 +92,38 @@
   font-size: 11px;
   color: var(--text-secondary);
 }
+
+/* ── Folder variants ────────────────────────────────────────────── */
+.folder-row {
+  color: var(--accent);
+}
+
+.folder-row:hover {
+  background: rgba(56, 189, 248, 0.05);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.folder-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.folder-card {
+  color: var(--accent);
+}
+
+.folder-card:hover {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.folder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 22px;
+  padding: 6px;
+}

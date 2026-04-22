@@ -160,7 +160,7 @@ app.put('/api/users/:username/password', authenticate, async (req, res) => {
   res.sendStatus(204)
 })
 
-// ── Security: strip path traversal characters from any user-supplied segment ──
+// ── Security: path resolution helpers ────────────────────────────────────────
 function safeName(name) {
   return path.basename(decodeURIComponent(name))
 }
@@ -169,19 +169,31 @@ function resolveContainerPath(containerId) {
   if (containerId === '__root__') return path.resolve(OUTPUTS_DIR)
   const safe     = safeName(containerId)
   const resolved = path.resolve(OUTPUTS_DIR, safe)
-  if (!resolved.startsWith(path.resolve(OUTPUTS_DIR) + path.sep) &&
-       resolved !== path.resolve(OUTPUTS_DIR)) {
-    return null
-  }
+  const root     = path.resolve(OUTPUTS_DIR)
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) return null
   return resolved
 }
 
-function resolveFilePath(containerId, filename) {
+// Resolve a subpath (e.g. "a/b/c") within a container, rejecting traversal.
+function resolveSubPath(containerId, subpath) {
   const containerPath = resolveContainerPath(containerId)
   if (!containerPath) return null
-  const safeFile = safeName(filename)
-  const resolved = path.resolve(containerPath, safeFile)
-  if (!resolved.startsWith(containerPath + path.sep)) return null
+  if (!subpath) return containerPath
+
+  let current = containerPath
+  for (const seg of subpath.split('/').filter(Boolean)) {
+    current = path.resolve(current, path.basename(seg))
+    if (!current.startsWith(path.resolve(OUTPUTS_DIR) + path.sep) &&
+         current !== path.resolve(OUTPUTS_DIR)) return null
+  }
+  return current
+}
+
+function resolveFilePath(containerId, subpath, filename) {
+  const dirPath = resolveSubPath(containerId, subpath)
+  if (!dirPath) return null
+  const resolved = path.resolve(dirPath, path.basename(filename))
+  if (!resolved.startsWith(path.resolve(OUTPUTS_DIR) + path.sep)) return null
   return resolved
 }
 
@@ -247,29 +259,46 @@ app.get('/api/containers', (_req, res) => {
 
 // ── GET /api/containers/:id/files ────────────────────────────────────────────
 app.get('/api/containers/:id/files', (req, res) => {
-  const containerPath = resolveContainerPath(req.params.id)
-  if (!containerPath || !fs.existsSync(containerPath)) {
+  const subpath  = req.query.subpath || ''
+  const dirPath  = resolveSubPath(req.params.id, subpath)
+  if (!dirPath || !fs.existsSync(dirPath)) {
     return res.status(404).json({ error: 'Container not found' })
   }
 
   try {
-    const entries = fs.readdirSync(containerPath, { withFileTypes: true })
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+    const pathLabel = subpath ? `/${subpath}/` : '/'
+
+    const dirs = entries
+      .filter(e => e.isDirectory())
+      .map(e => {
+        const stat = fs.statSync(path.join(dirPath, e.name))
+        return {
+          id:          e.name,
+          name:        e.name,
+          isDirectory: true,
+          modified:    stat.mtime.toISOString(),
+          path:        pathLabel,
+        }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+
     const files = entries
       .filter(e => e.isFile())
       .map(e => {
-        const stat = fs.statSync(path.join(containerPath, e.name))
+        const stat = fs.statSync(path.join(dirPath, e.name))
         return {
           id:       e.name,
           name:     e.name,
           type:     getMime(e.name),
           size:     stat.size,
           modified: stat.mtime.toISOString(),
-          path:     '/',
+          path:     pathLabel,
         }
       })
       .sort((a, b) => new Date(b.modified) - new Date(a.modified))
 
-    res.json(files)
+    res.json([...dirs, ...files])
   } catch (err) {
     console.error(`GET /api/containers/${req.params.id}/files:`, err.message)
     res.status(500).json({ error: 'Could not read container' })
@@ -278,7 +307,7 @@ app.get('/api/containers/:id/files', (req, res) => {
 
 // ── GET /api/containers/:id/files/:filename/download ─────────────────────────
 app.get('/api/containers/:id/files/:filename/download', (req, res) => {
-  const filePath = resolveFilePath(req.params.id, req.params.filename)
+  const filePath = resolveFilePath(req.params.id, req.query.subpath || '', req.params.filename)
   if (!filePath || !fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found' })
   }
@@ -295,7 +324,7 @@ app.get('/api/containers/:id/files/:filename/download', (req, res) => {
 
 // ── GET /api/containers/:id/files/:filename/view ─────────────────────────────
 app.get('/api/containers/:id/files/:filename/view', (req, res) => {
-  const filePath = resolveFilePath(req.params.id, req.params.filename)
+  const filePath = resolveFilePath(req.params.id, req.query.subpath || '', req.params.filename)
   if (!filePath || !fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found' })
   }
