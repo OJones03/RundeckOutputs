@@ -2,7 +2,7 @@ import { IconSearch, IconClose, IconList, IconGrid } from './Icons'
 import logo from '../assets/elementlogo.png'
 import './Header.css'
 
-export default function Header({ searchQuery, onSearchChange, viewMode, onViewModeChange, onLogout }) {
+export default function Header({ searchQuery, onSearchChange, viewMode, onViewModeChange, onLogout, isAdmin, onManageUsers }) {
   return (
     <header className="header">
       <div className="header-left">
@@ -54,6 +54,11 @@ export default function Header({ searchQuery, onSearchChange, viewMode, onViewMo
             <IconGrid />
           </button>
         </div>
+        {isAdmin && (
+          <button className="manage-users-btn" onClick={onManageUsers} title="Manage users">
+            Manage Users
+          </button>
+        )}
         <button className="logout-btn" onClick={onLogout} title="Sign out">
           Sign out
         </button>

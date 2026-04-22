@@ -36,8 +36,9 @@ COPY --from=frontend-builder /frontend/dist ./public
 EXPOSE 3001
 
 ENV STATIC_DIR=/app/public \
-    APP_USERNAME=admin \
-    APP_PASSWORD=admin \
+    DATA_DIR=/data \
+    AUTH_USERNAME=admin \
+    AUTH_PASSWORD=admin \
     JWT_SECRET=change-me-in-production
 
 CMD ["node", "index.js"]

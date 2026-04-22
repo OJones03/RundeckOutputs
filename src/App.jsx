@@ -4,11 +4,21 @@ import Sidebar from './components/Sidebar'
 import FileList from './components/FileList'
 import FilePreview from './components/FilePreview'
 import Login from './components/Login'
+import UserManager from './components/UserManager'
 import { authFetch } from './utils/authFetch'
 import './App.css'
 
+function decodeJwtPayload(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return null
+  }
+}
+
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
+  const [userManagerOpen, setUserManagerOpen] = useState(false)
 
   const [containers, setContainers]           = useState([])
   const [containersError, setContainersError] = useState(null)
@@ -23,6 +33,10 @@ function App() {
   const [filesLoading, setFilesLoading] = useState(false)
   const [filesError, setFilesError]     = useState(null)
 
+  const payload     = token ? decodeJwtPayload(token) : null
+  const currentUser = payload?.sub ?? null
+  const isAdmin     = payload?.role === 'admin'
+
   function handleLogin(newToken) {
     localStorage.setItem('auth_token', newToken)
     setToken(newToken)
@@ -36,6 +50,7 @@ function App() {
     setSelectedContainer(null)
     setFiles([])
     setSelectedFile(null)
+    setUserManagerOpen(false)
   }
 
   // Fetch container list on mount / token change
@@ -83,44 +98,55 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <Header
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onLogout={handleLogout}
-      />
-      <div className="app-body">
-        <Sidebar
-          containers={containers}
-          containersError={containersError}
-          selectedContainer={selectedContainer}
-          onContainerSelect={handleContainerSelect}
-        />
-        <FileList
-          files={filteredFiles}
-          loading={filesLoading}
-          error={filesError}
-          selectedFile={selectedFile}
-          onFileSelect={setSelectedFile}
-          currentPath={currentPath}
-          onPathChange={setCurrentPath}
-          selectedContainer={selectedContainer}
-          viewMode={viewMode}
+    <>
+      <div className="app">
+        <Header
           searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onLogout={handleLogout}
+          isAdmin={isAdmin}
+          onManageUsers={() => setUserManagerOpen(true)}
         />
-        {selectedFile && (
-          <FilePreview
-            file={selectedFile}
-            containerId={selectedContainer?.id}
-            token={token}
-            onClose={() => setSelectedFile(null)}
-            onUnauthorized={handleLogout}
+        <div className="app-body">
+          <Sidebar
+            containers={containers}
+            containersError={containersError}
+            selectedContainer={selectedContainer}
+            onContainerSelect={handleContainerSelect}
           />
-        )}
+          <FileList
+            files={filteredFiles}
+            loading={filesLoading}
+            error={filesError}
+            selectedFile={selectedFile}
+            onFileSelect={setSelectedFile}
+            currentPath={currentPath}
+            onPathChange={setCurrentPath}
+            selectedContainer={selectedContainer}
+            viewMode={viewMode}
+            searchQuery={searchQuery}
+          />
+          {selectedFile && (
+            <FilePreview
+              file={selectedFile}
+              containerId={selectedContainer?.id}
+              token={token}
+              onClose={() => setSelectedFile(null)}
+              onUnauthorized={handleLogout}
+            />
+          )}
+        </div>
       </div>
-    </div>
+      {userManagerOpen && (
+        <UserManager
+          token={token}
+          currentUser={currentUser}
+          onClose={() => setUserManagerOpen(false)}
+        />
+      )}
+    </>
   )
 }
 
