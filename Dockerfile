@@ -15,8 +15,8 @@ FROM node:20-alpine AS server-builder
 
 WORKDIR /server
 
-COPY server/package.json ./
-RUN npm install --production --silent
+COPY server/package.json server/package-lock.json* ./
+RUN npm ci --omit=dev --silent
 
 
 # ── Stage 3: Final runtime image ─────────────────────────────────
