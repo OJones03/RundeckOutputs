@@ -105,8 +105,8 @@ app.post('/api/users', authenticate, requireAdmin, async (req, res) => {
   if (!['admin', 'user'].includes(role)) {
     return res.status(400).json({ error: "Role must be 'admin' or 'user'" })
   }
-  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(username)) {
-    return res.status(400).json({ error: 'Username may only contain letters, numbers, hyphens and underscores (max 64 chars)' })
+  if (!/^[a-zA-Z0-9_.@-]{1,64}$/.test(username)) {
+    return res.status(400).json({ error: 'Username may only contain letters, numbers, dots, @, hyphens and underscores (max 64 chars)' })
   }
   if (password.length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters' })
